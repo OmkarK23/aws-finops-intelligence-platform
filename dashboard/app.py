@@ -67,16 +67,47 @@ FROM finops_database.vw_optimization_recommendations
 WHERE estimated_savings_usd > 0;
 """
 
+top_savings_query = """
+SELECT
+    resource_id,
+    service_name,
+    estimated_savings_usd
+FROM finops_database.vw_optimization_recommendations
+WHERE estimated_savings_usd > 0
+ORDER BY estimated_savings_usd DESC
+LIMIT 1;
+"""
+
 kpi_df = run_query(kpi_query)
 service_df = run_query(service_query)
 region_df = run_query(region_query)
 underutilized_df = run_query(underutilized_query)
 recommendation_df = run_query(recommendation_query)
 savings_df = run_query(savings_query)
+top_savings_df = run_query(top_savings_query)
 
 kpi = kpi_df.iloc[0]
 estimated_savings = savings_df.iloc[0]["estimated_savings"]
 waste_pct = (kpi["potential_waste"] / kpi["total_cloud_spend"]) * 100
+
+finops_score = max(
+    0,
+    round(100 - waste_pct)
+)
+
+with st.sidebar:
+    st.title("Cloud FinOps")
+    st.markdown("### Platform Overview")
+    st.metric("Total Spend", f"${kpi['total_cloud_spend']:,.0f}")
+    st.metric("Potential Waste", f"${kpi['potential_waste']:,.0f}")
+    st.metric("Waste %", f"{waste_pct:.1f}%")
+    st.metric("FinOps Health Score", f"{finops_score}/100")
+    st.markdown("---")
+    st.markdown("**Cloud Stack**")
+    st.write("AWS S3")
+    st.write("AWS Glue")
+    st.write("Amazon Athena")
+    st.write("Streamlit")
 
 tab1, tab2, tab3, tab4 = st.tabs([
     "Executive Summary",
@@ -88,13 +119,21 @@ tab1, tab2, tab3, tab4 = st.tabs([
 with tab1:
     st.subheader("Executive Summary")
 
-    col1, col2, col3, col4, col5 = st.columns(5)
+    col1, col2, col3, col4, col5, col6 = st.columns(6)
 
     col1.metric("Total Cloud Spend", f"${kpi['total_cloud_spend']:,.0f}")
     col2.metric("Total Resources", f"{int(kpi['total_resources']):,}")
     col3.metric("Potential Waste", f"${kpi['potential_waste']:,.0f}")
     col4.metric("Waste %", f"{waste_pct:.1f}%")
     col5.metric("Estimated Savings", f"${estimated_savings:,.0f}")
+    col6.metric("FinOps Score", f"{finops_score}/100")
+
+    st.info(
+        f"Top Savings Opportunity: "
+        f"{top_savings_df.iloc[0]['resource_id']} | "
+        f"{top_savings_df.iloc[0]['service_name']} | "
+        f"${top_savings_df.iloc[0]['estimated_savings_usd']:,.0f}"
+    )
 
     st.divider()
 
@@ -117,6 +156,21 @@ with tab1:
             title="Top 10 Regions by Spend"
         )
         st.plotly_chart(fig_region, use_container_width=True)
+
+    st.markdown("## Architecture")
+    st.code("""
+GCP Billing Dataset
+        ↓
+Amazon S3 Data Lake
+        ↓
+AWS Glue Data Catalog
+        ↓
+Amazon Athena SQL Views
+        ↓
+FinOps Optimization Logic
+        ↓
+Streamlit Executive Dashboard
+""")
 
 with tab2:
     st.subheader("Service Analytics")
@@ -150,20 +204,46 @@ with tab3:
 
     st.divider()
 
+    recommendation_display = recommendation_df.rename(
+        columns={
+            "resource_id": "Resource ID",
+            "service_name": "Service",
+            "region_zone": "Region",
+            "cpu_utilization_percent": "CPU %",
+            "memory_utilization_percent": "Memory %",
+            "rounded_cost_usd": "Monthly Cost ($)",
+            "estimated_savings_usd": "Savings Opportunity ($)",
+            "recommendation": "Recommendation"
+        }
+    )
+
+    underutilized_display = underutilized_df.rename(
+        columns={
+            "resource_id": "Resource ID",
+            "service_name": "Service",
+            "region_zone": "Region",
+            "cpu_utilization_percent": "CPU %",
+            "memory_utilization_percent": "Memory %",
+            "rounded_cost_usd": "Monthly Cost ($)",
+            "usage_start_date": "Usage Start Date",
+            "usage_end_date": "Usage End Date"
+        }
+    )
+
     st.markdown("### Top Optimization Recommendations")
-    st.dataframe(recommendation_df, use_container_width=True)
+    st.dataframe(recommendation_display, use_container_width=True)
 
     fig_savings = px.bar(
-        recommendation_df.head(20),
-        x="resource_id",
-        y="estimated_savings_usd",
-        color="recommendation",
+        recommendation_display.head(20),
+        x="Resource ID",
+        y="Savings Opportunity ($)",
+        color="Recommendation",
         title="Top 20 Estimated Savings Opportunities"
     )
     st.plotly_chart(fig_savings, use_container_width=True)
 
     st.markdown("### Underutilized Resources")
-    st.dataframe(underutilized_df, use_container_width=True)
+    st.dataframe(underutilized_display, use_container_width=True)
 
 with tab4:
     st.subheader("Regional Analytics")
