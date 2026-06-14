@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from pyathena import connect
+from prophet import Prophet
+
 
 st.set_page_config(
     page_title="Cloud FinOps Intelligence Platform",
@@ -77,6 +79,14 @@ WHERE estimated_savings_usd > 0
 ORDER BY estimated_savings_usd DESC
 LIMIT 1;
 """
+forecast_query = """
+SELECT
+    CAST(date_parse(usage_start_date, '%d-%m-%Y %H:%i') AS date) AS spend_date,
+    ROUND(SUM(rounded_cost_usd), 2) AS daily_spend
+FROM finops_database.gcp_cloud_billing
+GROUP BY 1
+ORDER BY 1;
+"""
 
 kpi_df = run_query(kpi_query)
 service_df = run_query(service_query)
@@ -85,6 +95,7 @@ underutilized_df = run_query(underutilized_query)
 recommendation_df = run_query(recommendation_query)
 savings_df = run_query(savings_query)
 top_savings_df = run_query(top_savings_query)
+forecast_df = run_query(forecast_query)
 
 kpi = kpi_df.iloc[0]
 estimated_savings = savings_df.iloc[0]["estimated_savings"]
@@ -109,11 +120,12 @@ with st.sidebar:
     st.write("Amazon Athena")
     st.write("Streamlit")
 
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "Executive Summary",
     "Service Analytics",
     "Resource Optimization",
-    "Regional Analytics"
+    "Regional Analytics",
+    "Forecasting"
 ])
 
 with tab1:
@@ -257,3 +269,57 @@ with tab4:
     st.plotly_chart(fig_region_full, use_container_width=True)
 
     st.dataframe(region_df, use_container_width=True)
+
+with tab5:
+    st.subheader("Spend Forecasting & Budget Risk")
+
+    forecast_data = forecast_df.rename(
+        columns={
+            "spend_date": "ds",
+            "daily_spend": "y"
+        }
+    )
+
+    forecast_data["ds"] = pd.to_datetime(forecast_data["ds"])
+    forecast_data["y"] = pd.to_numeric(forecast_data["y"])
+
+    if len(forecast_data) >= 10:
+        model = Prophet()
+        model.fit(forecast_data)
+
+        future = model.make_future_dataframe(periods=30)
+        forecast = model.predict(future)
+
+        historical_spend = forecast_data["y"].sum()
+        projected_next_30_days = forecast.tail(30)["yhat"].sum()
+        budget_limit = historical_spend * 1.05
+
+        if projected_next_30_days > budget_limit:
+            risk_status = "High Budget Risk"
+        elif projected_next_30_days > historical_spend:
+            risk_status = "Medium Budget Risk"
+        else:
+            risk_status = "Low Budget Risk"
+
+        col1, col2, col3 = st.columns(3)
+
+        col1.metric("Historical Spend", f"${historical_spend:,.0f}")
+        col2.metric("Projected Next 30 Days", f"${projected_next_30_days:,.0f}")
+        col3.metric("Budget Risk", risk_status)
+
+        fig_forecast = px.line(
+            forecast,
+            x="ds",
+            y="yhat",
+            title="Cloud Spend Forecast - Next 30 Days"
+        )
+
+        st.plotly_chart(fig_forecast, use_container_width=True)
+
+        st.dataframe(
+            forecast[["ds", "yhat", "yhat_lower", "yhat_upper"]].tail(30),
+            use_container_width=True
+        )
+
+    else:
+        st.warning("Not enough historical dates for reliable forecasting.")
