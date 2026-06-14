@@ -1,0 +1,179 @@
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+from pyathena import connect
+
+st.set_page_config(
+    page_title="Cloud FinOps Intelligence Platform",
+    layout="wide"
+)
+
+ATHENA_S3_STAGING_DIR = "s3://finops-cost-lake-omkark23/athena-results/"
+AWS_REGION = "us-east-1"
+
+
+@st.cache_data(ttl=600)
+def run_query(query):
+    conn = connect(
+        s3_staging_dir=ATHENA_S3_STAGING_DIR,
+        region_name=AWS_REGION
+    )
+    return pd.read_sql(query, conn)
+
+
+st.title("Cloud FinOps Intelligence Platform")
+st.caption("Serverless cloud cost analytics using AWS S3, Glue, Athena, and Streamlit.")
+
+kpi_query = """
+SELECT
+    ROUND(SUM(rounded_cost_usd), 2) AS total_cloud_spend,
+    COUNT(DISTINCT resource_id) AS total_resources,
+    ROUND(SUM(CASE WHEN cpu_utilization_percent < 20 THEN rounded_cost_usd ELSE 0 END), 2) AS potential_waste,
+    COUNT(CASE WHEN cpu_utilization_percent < 20 THEN 1 END) AS underutilized_resource_count
+FROM finops_database.gcp_cloud_billing;
+"""
+
+service_query = """
+SELECT *
+FROM finops_database.vw_service_spend
+ORDER BY total_cost DESC;
+"""
+
+region_query = """
+SELECT *
+FROM finops_database.vw_region_spend
+ORDER BY total_cost DESC;
+"""
+
+underutilized_query = """
+SELECT *
+FROM finops_database.vw_underutilized_resources
+ORDER BY rounded_cost_usd DESC
+LIMIT 50;
+"""
+
+recommendation_query = """
+SELECT *
+FROM finops_database.vw_optimization_recommendations
+WHERE estimated_savings_usd > 0
+ORDER BY estimated_savings_usd DESC
+LIMIT 50;
+"""
+
+savings_query = """
+SELECT
+    ROUND(SUM(estimated_savings_usd), 2) AS estimated_savings
+FROM finops_database.vw_optimization_recommendations
+WHERE estimated_savings_usd > 0;
+"""
+
+kpi_df = run_query(kpi_query)
+service_df = run_query(service_query)
+region_df = run_query(region_query)
+underutilized_df = run_query(underutilized_query)
+recommendation_df = run_query(recommendation_query)
+savings_df = run_query(savings_query)
+
+kpi = kpi_df.iloc[0]
+estimated_savings = savings_df.iloc[0]["estimated_savings"]
+waste_pct = (kpi["potential_waste"] / kpi["total_cloud_spend"]) * 100
+
+tab1, tab2, tab3, tab4 = st.tabs([
+    "Executive Summary",
+    "Service Analytics",
+    "Resource Optimization",
+    "Regional Analytics"
+])
+
+with tab1:
+    st.subheader("Executive Summary")
+
+    col1, col2, col3, col4, col5 = st.columns(5)
+
+    col1.metric("Total Cloud Spend", f"${kpi['total_cloud_spend']:,.0f}")
+    col2.metric("Total Resources", f"{int(kpi['total_resources']):,}")
+    col3.metric("Potential Waste", f"${kpi['potential_waste']:,.0f}")
+    col4.metric("Waste %", f"{waste_pct:.1f}%")
+    col5.metric("Estimated Savings", f"${estimated_savings:,.0f}")
+
+    st.divider()
+
+    col_a, col_b = st.columns(2)
+
+    with col_a:
+        fig_service = px.bar(
+            service_df.head(10),
+            x="service_name",
+            y="total_cost",
+            title="Top 10 Services by Spend"
+        )
+        st.plotly_chart(fig_service, use_container_width=True)
+
+    with col_b:
+        fig_region = px.bar(
+            region_df.head(10),
+            x="region_zone",
+            y="total_cost",
+            title="Top 10 Regions by Spend"
+        )
+        st.plotly_chart(fig_region, use_container_width=True)
+
+with tab2:
+    st.subheader("Service Analytics")
+
+    fig_service_full = px.bar(
+        service_df,
+        x="service_name",
+        y="total_cost",
+        title="Cloud Spend by Service"
+    )
+    st.plotly_chart(fig_service_full, use_container_width=True)
+
+    fig_service_pie = px.pie(
+        service_df,
+        names="service_name",
+        values="total_cost",
+        title="Service Spend Distribution"
+    )
+    st.plotly_chart(fig_service_pie, use_container_width=True)
+
+    st.dataframe(service_df, use_container_width=True)
+
+with tab3:
+    st.subheader("Resource Optimization")
+
+    col1, col2, col3 = st.columns(3)
+
+    col1.metric("Underutilized Resources", f"{int(kpi['underutilized_resource_count']):,}")
+    col2.metric("Potential Waste", f"${kpi['potential_waste']:,.0f}")
+    col3.metric("Estimated Savings", f"${estimated_savings:,.0f}")
+
+    st.divider()
+
+    st.markdown("### Top Optimization Recommendations")
+    st.dataframe(recommendation_df, use_container_width=True)
+
+    fig_savings = px.bar(
+        recommendation_df.head(20),
+        x="resource_id",
+        y="estimated_savings_usd",
+        color="recommendation",
+        title="Top 20 Estimated Savings Opportunities"
+    )
+    st.plotly_chart(fig_savings, use_container_width=True)
+
+    st.markdown("### Underutilized Resources")
+    st.dataframe(underutilized_df, use_container_width=True)
+
+with tab4:
+    st.subheader("Regional Analytics")
+
+    fig_region_full = px.bar(
+        region_df,
+        x="region_zone",
+        y="total_cost",
+        title="Cloud Spend by Region"
+    )
+    st.plotly_chart(fig_region_full, use_container_width=True)
+
+    st.dataframe(region_df, use_container_width=True)
