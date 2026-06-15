@@ -15,7 +15,71 @@ st.set_page_config(
     page_title="Cloud FinOps Intelligence Platform",
     layout="wide"
 )
+st.markdown("""
+<style>
+    .main {
+        background-color: #0f172a;
+    }
 
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+    }
+
+    h1, h2, h3 {
+        color: #f8fafc;
+    }
+
+    p, label, span {
+        color: #cbd5e1;
+    }
+
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #020617 0%, #111827 100%);
+    }
+
+    [data-testid="stMetric"] {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        border: 1px solid #334155;
+        padding: 18px;
+        border-radius: 16px;
+        box-shadow: 0px 4px 20px rgba(0,0,0,0.25);
+    }
+
+    [data-testid="stMetricLabel"] {
+        color: #94a3b8;
+        font-size: 14px;
+    }
+
+    [data-testid="stMetricValue"] {
+        color: #38bdf8;
+        font-size: 28px;
+        font-weight: 700;
+    }
+
+    div[data-testid="stTabs"] button {
+        background-color: #1e293b;
+        color: #e2e8f0;
+        border-radius: 12px;
+        padding: 10px 16px;
+        margin-right: 6px;
+    }
+
+    div[data-testid="stTabs"] button[aria-selected="true"] {
+        background-color: #2563eb;
+        color: white;
+    }
+
+    .stDataFrame {
+        border-radius: 14px;
+        overflow: hidden;
+    }
+
+    .stAlert {
+        border-radius: 14px;
+    }
+</style>
+""", unsafe_allow_html=True)
 ATHENA_S3_STAGING_DIR = "s3://finops-cost-lake-omkark23/athena-results/"
 AWS_REGION = "us-east-1"
 
@@ -33,8 +97,21 @@ def run_query(query):
     return pd.read_sql(query, conn)
 
 
-st.title("Cloud FinOps Intelligence Platform")
-st.caption("Serverless cloud cost analytics using AWS S3, Glue, Athena, and Streamlit.")
+st.markdown("""
+<div style="
+    background: linear-gradient(90deg, #1d4ed8, #0f766e);
+    padding: 28px;
+    border-radius: 20px;
+    margin-bottom: 24px;
+">
+    <h1 style="color:white; margin-bottom:8px;">
+        Cloud FinOps Intelligence Platform
+    </h1>
+    <p style="color:#e0f2fe; font-size:18px;">
+        Serverless AWS cost optimization, forecasting, and executive cloud spend intelligence.
+    </p>
+</div>
+""", unsafe_allow_html=True)
 st.info("""
 Cloud FinOps Intelligence Platform analyzes cloud infrastructure costs, identifies optimization opportunities,
 estimates savings, forecasts future spend, and provides executive-level FinOps insights using AWS serverless services.
