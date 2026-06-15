@@ -1,3 +1,8 @@
+![AWS](https://img.shields.io/badge/AWS-S3%20%7C%20Glue%20%7C%20Athena-orange)
+![Python](https://img.shields.io/badge/Python-3.12-blue)
+![Streamlit](https://img.shields.io/badge/Streamlit-Dashboard-red)
+![FinOps](https://img.shields.io/badge/FinOps-Cost%20Optimization-green)
+
 # Cloud FinOps Intelligence Platform
 
 A serverless cloud cost analytics and optimization platform built using AWS S3, AWS Glue, Amazon Athena, Python, and Streamlit.
@@ -54,3 +59,14 @@ Executive KPIs + Forecasting + Budget Risk
 ## Architecture
 
 ![Architecture](docs/architecture/aws_finops_architecture.png)
+
+## Dashboard Screenshots
+
+### Executive Summary
+![Executive Summary](docs/screenshots/executive_summary.png)
+
+### Resource Optimization
+![Resource Optimization](docs/screenshots/resource_optimization.png)
+
+### Forecasting
+![Forecasting](docs/screenshots/forecasting.png)
