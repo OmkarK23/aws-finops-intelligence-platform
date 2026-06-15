@@ -1,9 +1,13 @@
-import streamlit as st
-import pandas as pd
-import plotly.express as px
-from pyathena import connect
-from prophet import Prophet
-
+DEMO_MODE = True
+import streamlit as st # type: ignore
+import pandas as pd # type: ignore
+import plotly.express as px # type: ignore
+from pyathena import connect # type: ignore
+try:
+    from prophet import Prophet
+    PROPHET_AVAILABLE = True
+except ImportError:
+    PROPHET_AVAILABLE = False
 
 st.set_page_config(
     page_title="Cloud FinOps Intelligence Platform",
@@ -89,10 +93,31 @@ ORDER BY 1;
 """
 
 kpi_df = run_query(kpi_query)
-service_df = run_query(service_query)
-region_df = run_query(region_query)
-underutilized_df = run_query(underutilized_query)
-recommendation_df = run_query(recommendation_query)
+if DEMO_MODE:
+    service_df = pd.read_csv(
+        "data/demo/service_spend.csv"
+    )
+else:
+    service_df = run_query(service_query)
+if DEMO_MODE:
+    region_df = pd.read_csv(
+        "data/demo/region_spend.csv"
+    )
+else:
+    region_df = run_query(region_query)
+if DEMO_MODE:
+        underutilized_df = pd.read_csv(
+            "data/demo/underutilized.csv"
+        )
+else:
+    underutilized_df = run_query(underutilized_query)
+    
+if DEMO_MODE:
+    recommendation_df = pd.read_csv(
+        "data/demo/recommendations.csv"
+    )
+else:
+    recommendation_df = run_query(recommendation_query) 
 savings_df = run_query(savings_query)
 top_savings_df = run_query(top_savings_query)
 forecast_df = run_query(forecast_query)
@@ -273,53 +298,71 @@ with tab4:
 with tab5:
     st.subheader("Spend Forecasting & Budget Risk")
 
-    forecast_data = forecast_df.rename(
-        columns={
-            "spend_date": "ds",
-            "daily_spend": "y"
-        }
-    )
-
-    forecast_data["ds"] = pd.to_datetime(forecast_data["ds"])
-    forecast_data["y"] = pd.to_numeric(forecast_data["y"])
-
-    if len(forecast_data) >= 10:
-        model = Prophet()
-        model.fit(forecast_data)
-
-        future = model.make_future_dataframe(periods=30)
-        forecast = model.predict(future)
-
-        historical_spend = forecast_data["y"].sum()
-        projected_next_30_days = forecast.tail(30)["yhat"].sum()
-        budget_limit = historical_spend * 1.05
-
-        if projected_next_30_days > budget_limit:
-            risk_status = "High Budget Risk"
-        elif projected_next_30_days > historical_spend:
-            risk_status = "Medium Budget Risk"
-        else:
-            risk_status = "Low Budget Risk"
-
-        col1, col2, col3 = st.columns(3)
-
-        col1.metric("Historical Spend", f"${historical_spend:,.0f}")
-        col2.metric("Projected Next 30 Days", f"${projected_next_30_days:,.0f}")
-        col3.metric("Budget Risk", risk_status)
-
-        fig_forecast = px.line(
-            forecast,
-            x="ds",
-            y="yhat",
-            title="Cloud Spend Forecast - Next 30 Days"
-        )
-
-        st.plotly_chart(fig_forecast, use_container_width=True)
-
-        st.dataframe(
-            forecast[["ds", "yhat", "yhat_lower", "yhat_upper"]].tail(30),
-            use_container_width=True
-        )
-
+    if not PROPHET_AVAILABLE:
+        st.warning("Prophet is not installed. Forecasting is unavailable in this environment.")
     else:
-        st.warning("Not enough historical dates for reliable forecasting.")
+        forecast_data = forecast_df.rename(
+            columns={
+                "spend_date": "ds",
+                "daily_spend": "y"
+            }
+        )
+
+        forecast_data["ds"] = pd.to_datetime(forecast_data["ds"])
+        forecast_data["y"] = pd.to_numeric(forecast_data["y"])
+
+        if len(forecast_data) >= 10:
+            model = Prophet()
+            model.fit(forecast_data)
+
+            future = model.make_future_dataframe(periods=30)
+            forecast = model.predict(future)
+
+            historical_spend = forecast_data["y"].sum()
+            projected_next_30_days = forecast.tail(30)["yhat"].sum()
+            budget_limit = historical_spend * 1.05
+
+            if projected_next_30_days > budget_limit:
+                risk_status = "High Budget Risk"
+            elif projected_next_30_days > historical_spend:
+                risk_status = "Medium Budget Risk"
+            else:
+                risk_status = "Low Budget Risk"
+
+            col1, col2, col3 = st.columns(3)
+
+            col1.metric("Historical Spend", f"${historical_spend:,.0f}")
+            col2.metric("Projected Next 30 Days", f"${projected_next_30_days:,.0f}")
+            with col3:
+                st.markdown("### Budget Risk")
+
+                if risk_status == "High Budget Risk":
+                    st.error("🔴 Budget Exceedance Likely")
+
+                elif risk_status == "Medium Budget Risk":
+                    st.warning("🟡 Monitor Spending Trend")
+
+                else:
+                    st.success("🟢 Within Budget Forecast")
+
+            fig_forecast = px.line(
+                forecast,
+                x="ds",
+                y="yhat",
+                title="Cloud Spend Forecast - Next 30 Days"
+            )
+
+            st.plotly_chart(fig_forecast, use_container_width=True)
+
+            forecast_display = forecast[
+                ["ds", "yhat", "yhat_lower", "yhat_upper"]
+            ].tail(30).copy()
+
+            forecast_display["ds"] = forecast_display["ds"].dt.strftime("%b %d, %Y")
+
+            st.dataframe(
+                forecast_display,
+                use_container_width=True
+        )
+        else:
+            st.warning("Not enough historical dates for reliable forecasting.")
