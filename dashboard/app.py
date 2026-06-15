@@ -98,35 +98,40 @@ GROUP BY 1
 ORDER BY 1;
 """
 
-kpi_df = run_query(kpi_query)
 if DEMO_MODE:
-    service_df = pd.read_csv(
-        "data/demo/service_spend.csv"
-    )
+
+    service_df = pd.read_csv("data/demo/service_spend.csv")
+    region_df = pd.read_csv("data/demo/region_spend.csv")
+    underutilized_df = pd.read_csv("data/demo/underutilized.csv")
+    recommendation_df = pd.read_csv("data/demo/recommendations.csv")
+    forecast_df = pd.read_csv("data/demo/daily_spend.csv")
+
+    kpi_df = pd.DataFrame([{
+        "total_cloud_spend": service_df["total_cost"].sum(),
+        "total_resources": service_df["resource_count"].sum(),
+        "potential_waste": underutilized_df["rounded_cost_usd"].sum(),
+        "underutilized_resource_count": len(underutilized_df)
+    }])
+
+    savings_df = pd.DataFrame([{
+        "estimated_savings": recommendation_df["estimated_savings_usd"].sum()
+    }])
+
+    top_savings_df = recommendation_df.sort_values(
+        "estimated_savings_usd",
+        ascending=False
+    ).head(1)
+
 else:
+
+    kpi_df = run_query(kpi_query)
     service_df = run_query(service_query)
-if DEMO_MODE:
-    region_df = pd.read_csv(
-        "data/demo/region_spend.csv"
-    )
-else:
     region_df = run_query(region_query)
-if DEMO_MODE:
-        underutilized_df = pd.read_csv(
-            "data/demo/underutilized.csv"
-        )
-else:
     underutilized_df = run_query(underutilized_query)
-    
-if DEMO_MODE:
-    recommendation_df = pd.read_csv(
-        "data/demo/recommendations.csv"
-    )
-else:
-    recommendation_df = run_query(recommendation_query) 
-savings_df = run_query(savings_query)
-top_savings_df = run_query(top_savings_query)
-forecast_df = run_query(forecast_query)
+    recommendation_df = run_query(recommendation_query)
+    savings_df = run_query(savings_query)
+    top_savings_df = run_query(top_savings_query)
+    forecast_df = run_query(forecast_query)
 
 kpi = kpi_df.iloc[0]
 estimated_savings = savings_df.iloc[0]["estimated_savings"]
