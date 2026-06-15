@@ -2,7 +2,9 @@ DEMO_MODE = True
 import streamlit as st # type: ignore
 import pandas as pd # type: ignore
 import plotly.express as px # type: ignore
-from pyathena import connect # type: ignore
+DEMO_MODE = True
+if not DEMO_MODE:
+    from pyathena import connect
 try:
     from prophet import Prophet
     PROPHET_AVAILABLE = True
@@ -20,10 +22,14 @@ AWS_REGION = "us-east-1"
 
 @st.cache_data(ttl=600)
 def run_query(query):
+    if DEMO_MODE:
+        return pd.DataFrame()
+
     conn = connect(
         s3_staging_dir=ATHENA_S3_STAGING_DIR,
         region_name=AWS_REGION
     )
+
     return pd.read_sql(query, conn)
 
 
