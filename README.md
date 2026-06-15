@@ -31,3 +31,26 @@ Athena Views / FinOps Optimization Layer
 Streamlit Dashboard
         ↓
 Executive KPIs + Forecasting + Budget Risk
+
+## Repository Structure
+
+```text
+.
+├── dashboard/
+│   └── app.py
+├── data/
+│   ├── raw/
+│   └── processed/
+├── docs/
+│   ├── architecture/
+│   └── screenshots/
+├── notebooks/
+├── sql/
+│   └── finops_views.sql
+├── src/
+├── requirements.txt
+└── README.md
+```
+## Architecture
+
+![Architecture](docs/architecture/aws_finops_architecture.png)
