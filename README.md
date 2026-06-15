@@ -23,19 +23,33 @@ Cloud teams often struggle to identify where infrastructure costs are increasing
 ## Architecture
 
 ```text
-GCP Billing Dataset
+## Architecture
+
+```text
+Cloud Billing Dataset
         ↓
 Amazon S3 Data Lake
         ↓
+S3 Event Notification
+        ↓
+AWS Lambda
+        ↓
+AWS Glue Crawler
+        ↓
+AWS Glue ETL Job
+        ↓
+Processed Parquet Dataset
+        ↓
 AWS Glue Data Catalog
         ↓
-Amazon Athena SQL Engine
+Amazon Athena
         ↓
-Athena Views / FinOps Optimization Layer
+FinOps Analytics Views
         ↓
 Streamlit Dashboard
         ↓
-Executive KPIs + Forecasting + Budget Risk
+Forecasting & Executive Insights
+```
 
 ## Repository Structure
 
