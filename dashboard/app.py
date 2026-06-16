@@ -116,6 +116,12 @@ st.info("""
 Cloud FinOps Intelligence Platform analyzes cloud infrastructure costs, identifies optimization opportunities,
 estimates savings, forecasts future spend, and provides executive-level FinOps insights using AWS serverless services.
 """)
+st.warning("""
+Demo Mode: This public dashboard uses exported demo data for security. 
+The production AWS backend supports automated refresh through S3 Event Notifications, AWS Lambda, AWS Glue, and Athena.
+""")
+
+st.caption("Demo dataset last refreshed: June 15, 2026")
 
 kpi_query = """
 SELECT
