@@ -81,6 +81,9 @@ The Athena views in [`sql/finops_views.sql`](sql/finops_views.sql) hold the busi
 │   └── screenshots/
 ├── sql/
 │   └── finops_views.sql       # Athena views the dashboard queries
+├── tools/
+│   └── validate_billing_data.py  # data quality checks on the raw export
+├── tests/
 ├── requirements.txt
 └── README.md
 ```
@@ -125,6 +128,69 @@ streamlit run dashboard/app.py
 
 ### Forecasting
 ![Forecasting](docs/screenshots/forecasting.png)
+
+## Data governance
+
+Field definitions, classification, agreed thresholds, and ownership roles are in the [data dictionary](docs/data_dictionary.md).
+
+### Data quality checks
+
+Cost analysis is only as good as the billing data underneath it, so the raw export is validated before it is analyzed. Nine rules cover schema, completeness, uniqueness, validity, accuracy, and consistency:
+
+```bash
+python tools/validate_billing_data.py
+```
+
+```text
+PASS  BQ-01 [schema]        File has exactly the expected columns
+PASS  BQ-02 [completeness]  No nulls in any required column
+PASS  BQ-03 [uniqueness]    Resource ID is unique per row
+PASS  BQ-04 [validity]      CPU and memory utilization are between 0 and 100
+PASS  BQ-05 [validity]      Costs and usage quantities are not negative
+PASS  BQ-06 [accuracy]      Usage quantity x unit price equals unrounded cost
+PASS  BQ-07 [consistency]   Rounded cost is within $1 of unrounded cost
+PASS  BQ-08 [validity]      Usage dates parse and end is not before start
+PASS  BQ-09 [consistency]   INR column uses a single exchange rate
+
+9 of 9 rules passed.
+```
+
+The current dataset passes all nine. To show the checks actually catch problems rather than always passing, `tests/` corrupts the data on purpose (nulls, duplicate resource IDs, utilization over 100, costs that do not match quantity times unit price, reversed date ranges, a mixed exchange rate) and asserts that each rule fires:
+
+```bash
+pip install -r requirements.txt
+python -m pytest tests
+```
+
+Run the validator with `--fail-on-error` to make it a gate that stops a pipeline run on bad data.
+
+### Definitions in one place
+
+Thresholds such as "underutilized" (CPU under 20%) and the savings multipliers live in the Athena views in `sql/finops_views.sql`, not in dashboard code. Every consumer gets the same number, and changing a definition is a reviewable change in one file.
+
+### Lineage
+
+```text
+raw billing export (S3) -> Glue ETL -> Parquet -> Glue Data Catalog
+  -> Athena views (business logic) -> Streamlit dashboard
+```
+
+Each layer has one job: S3 keeps the untouched source, Glue standardizes it, the views hold the definitions, and the dashboard only presents. Any number on the dashboard traces back to the view that defines it and the raw column it came from.
+
+### Access and sensitivity
+
+This data holds no personal information, but spend and infrastructure detail are commercially sensitive.
+
+**In place now:**
+- The Athena staging bucket, region, and demo mode are environment variables, so no account-specific values sit in committed code.
+- Data lives in a private S3 bucket and is queried through Athena rather than passed around as spreadsheets.
+
+**Needed before running this on real company billing data:**
+- Separate IAM roles for pipeline writes and analyst reads, scoped to this bucket and database rather than account wide.
+- CloudTrail data events on the bucket, so access to spend data is auditable.
+- Lake Formation or Athena workgroup permissions controlling who can query which tables.
+- S3 lifecycle rules matching a stated retention period for raw billing exports.
+- Cost allocation tags enforced at resource creation, so spend maps to a team without manual work.
 
 ## Known limitations
 
