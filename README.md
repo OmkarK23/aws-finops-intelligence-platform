@@ -9,7 +9,7 @@ A serverless cloud cost analytics and optimization platform built on AWS S3, AWS
 
 The billing data analyzed here is a cloud billing export with per resource cost and utilization fields. The analytics stack that processes it is AWS serverless, which is the point of the project: the billing source and the analytics platform do not have to be the same cloud.
 
-> Data source: TODO, add where this dataset came from (public dataset, generated, or other).
+> Data source: public cloud billing dataset from Kaggle, used for demonstration. Not real company billing data.
 
 ## Business Problem
 
