@@ -1,8 +1,11 @@
-DEMO_MODE = True
+import os
 import streamlit as st # type: ignore
 import pandas as pd # type: ignore
 import plotly.express as px # type: ignore
-DEMO_MODE = True
+
+# DEMO_MODE=true reads the sample CSVs in data/demo (no AWS account needed).
+# DEMO_MODE=false queries the Athena views defined in sql/finops_views.sql.
+DEMO_MODE = os.getenv("DEMO_MODE", "true").strip().lower() in ("1", "true", "yes")
 if not DEMO_MODE:
     from pyathena import connect
 try:
@@ -80,8 +83,8 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
-ATHENA_S3_STAGING_DIR = "s3://finops-cost-lake-omkark23/athena-results/"
-AWS_REGION = "us-east-1"
+ATHENA_S3_STAGING_DIR = os.getenv("ATHENA_S3_STAGING_DIR", "s3://finops-cost-lake-omkark23/athena-results/")
+AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
 
 
 @st.cache_data(ttl=600)

@@ -1,1 +1,29 @@
+# Python
+venv/
+.venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# OS
 .DS_Store
+Thumbs.db
+
+# Installers and archives (do not commit binaries)
+*.pkg
+*.zip
+*.dmg
+*.exe
+
+# Secrets and local config
+.env
+.env.*
+*.pem
+credentials*.json
+
+# Data outputs (keep data/raw sample inputs, not generated outputs)
+data/processed/
+
+# Notebook checkpoints
+.ipynb_checkpoints/
